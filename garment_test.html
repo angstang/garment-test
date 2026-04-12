@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服装标准知识测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 20px;
+            min-height: 400px;
+        }
+
+        .welcome-screen,
+        .info-screen,
+        .question-screen,
+        .result-screen {
+            display: none;
+        }
+
+        .welcome-screen.active,
+        .info-screen.active,
+        .question-screen.active,
+        .result-screen.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 欢迎页面 */
+        .welcome-content {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .welcome-content h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .welcome-content p {
+            line-height: 1.8;
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .info-item {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .info-item strong {
+            color: #667eea;
+        }
+
+        /* 表单 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* 题目页面 */
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .question-num {
+            font-size: 14px;
+            color: #999;
+            font-weight: 500;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 4px;
+            background: #f0f0f0;
+            border-radius: 2px;
+            margin: 0 15px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+
+        .category {
+            display: inline-block;
+            background: #f0f0f0;
+            color: #667eea;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .question-content {
+            margin: 20px 0;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .question-content strong {
+            color: #667eea;
+        }
+
+        .standard-info {
+            background: #e8f0ff;
+            padding: 10px 15px;
+            border-left: 3px solid #667eea;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .options {
+            margin: 20px 0;
+        }
+
+        .option {
+            background: #f9f9f9;
+            border: 2px solid #e0e0e0;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 15px;
+        }
+
+        .option:hover {
+            border-color: #667eea;
+            background: #f5f8ff;
+        }
+
+        .option.selected {
+            border-color: #667eea;
+            background: #e8f0ff;
+            font-weight: 500;
+        }
+
+        .option input[type="radio"] {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .feedback.show {
+            display: block;
+        }
+
+        .feedback.correct {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .feedback.incorrect {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .feedback-title {
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .feedback-content {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* 结果页面 */
+        .result-content {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto;
+            font-size: 48px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .result-item {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .result-item-title {
+            color: #999;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .result-item-value {
+            color: #333;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .rating {
+            font-size: 16px;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+
+        .rating.excellent {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .rating.good {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .rating.pass {
+            background: #fff3cd;
+            color: #664d03;
+        }
+
+        .rating.fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .category-scores {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .category-scores h4 {
+            margin-bottom: 10px;
+            color: #667eea;
+            font-size: 14px;
+        }
+
+        .category-score {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 14px;
+        }
+
+        .category-score:last-child {
+            border-bottom: none;
+        }
+
+        /* 按钮 */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 底部信息 */
+        .footer {
+            text-align: center;
+            padding: 15px;
+            color: #999;
+            font-size: 12px;
+            border-top: 1px solid #f0f0f0;
+            background: #fafafa;
+        }
+
+        /* 响应式 */
+        @media (max-width: 480px) {
+            .container {
+                border-radius: 0;
+                min-height: 100vh;
+            }
+
+            .header {
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
+
+            .content {
+                padding: 15px;
+                min-height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>👔 服装标准测试</h1>
+            <p>评估行业标准知识水平</p>
+        </div>
+
+        <!-- 内容区 -->
+        <div class="content">
+            <!-- 欢迎页面 -->
+            <div class="welcome-screen active">
+                <div class="welcome-content">
+                    <h2>欢迎参加测试</h2>
+                    <p>这是一个针对服装行业内部人员的知识测试系统</p>
+
+                    <div class="info-item">
+                        <strong>📋 测试内容：</strong>
+                        <p>设计、工艺、版师、安全标准等</p>
+                    </div>
+
+                    <div class="info-item">
+                        <strong>⏱️ 耗时：</strong>
+                        <p>约 15-20 分钟</p>
+                    </div>
+
+                    <div class="info-item">
+                        <strong>✅ 题目数：</strong>
+                        <p>8 道题</p>
+                    </div>
+
+                    <button class="btn-primary" onclick="startTest()" style="margin-top: 30px;">开始测试</button>
+                </div>
+            </div>
+
+            <!-- 信息填写页面 -->
+            <div class="info-screen">
+                <form onsubmit="submitInfo(event)">
+                    <div class="form-group">
+                        <label for="username">姓名 *</label>
+                        <input type="text" id="username" required placeholder="请输入您的姓名">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="department">部门 *</label>
+                        <select id="department" required>
+                            <option value="">请选择</option>
+                            <option value="设计部">设计部</option>
+                            <option value="工艺部">工艺部</option>
+                            <option value="版师部">版师部</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="button" class="btn-secondary" onclick="backToWelcome()">返回</button>
+                        <button type="submit" class="btn-primary">开始答题</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 题目页面 -->
+            <div class="question-screen">
+                <div class="question-header">
+                    <span class="question-num"><span id="currentNum">1</span>/<span id="totalNum">8</span></span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span class="category" id="categoryTag">设计</span>
+                </div>
+
+                <div class="standard-info" id="standardInfo">标准: GB/T XXXX</div>
+
+                <div class="question-content" id="questionContent"></div>
+
+                <div class="options" id="optionsContainer"></div>
+
+                <div class="feedback" id="feedback"></div>
+
+                <div class="btn-group">
+                    <button class="btn-primary" id="submitBtn" onclick="submitAnswer()">提交答案</button>
+                </div>
+            </div>
+
+            <!-- 结果页面 -->
+            <div class="result-screen">
+                <div class="result-content">
+                    <h2>测试完成</h2>
+
+                    <div class="score-circle" id="scoreCircle">90</div>
+
+                    <div class="result-item">
+                        <div class="result-item-title">姓名</div>
+                        <div class="result-item-value" id="resultName">-</div>
+                    </div>
+
+                    <div class="result-item">
+                        <div class="result-item-title">部门</div>
+                        <div class="result-item-value" id="resultDept">-</div>
+                    </div>
+
+                    <div class="result-item">
+                        <div class="result-item-title">成绩</div>
+                        <div class="result-item-value" id="resultScore">-</div>
+                    </div>
+
+                    <div class="rating" id="ratingText"></div>
+
+                    <div class="category-scores" id="categoryScores"></div>
+
+                    <div class="btn-group">
+                        <button class="btn-secondary" onclick="downloadReport()">📥 下载报告</button>
+                        <button class="btn-primary" onclick="restartTest()">🔄 重新测试</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>服装行业标准知识评估系统 v1.0</p>
+        </div>
+    </div>
+
+    <script>
+        // 测试题库
+        const questions = [
+            {
+                id: 1,
+                category: "设计",
+                content: "GB/T 5296.4《消费品使用说明 第4部分：纺织品和服装》规定，标签上应标注哪些基本信息？",
+                options: [
+                    "A. 仅标注成分和含量",
+                    "B. 成分、含量、洗涤方法、规格尺寸等",
+                    "C. 仅标注价格和生产日期",
+                    "D. 生产地和生产商名称",
+                ],
+                correct: 1,
+                standard: "GB/T 5296.4-2012",
+                explanation: "消费品使用说明标准要求标注成分含量、洗涤保养方法、规格尺寸、生产商信息等完整信息。"
+            },
+            {
+                id: 2,
+                category: "设计",
+                content: "FZ/T 01053《针织T恤衫》标准中，对成品缩率的要求是多少？",
+                options: [
+                    "A. 长度不超过3%，宽度不超过4%",
+                    "B. 长度不超过5%，宽度不超过5%",
+                    "C. 长度不超过2%，宽度不超过2%",
+                    "D. 无缩率要求",
+                ],
+                correct: 0,
+                standard: "FZ/T 01053-2019",
+                explanation: "针织T恤衫标准规定成品缩率：长度方向不超过3%，宽度方向不超过4%。"
+            },
+            {
+                id: 3,
+                category: "工艺",
+                content: "GB/T 2918《纺织品 试样的采取和处理方法》中，条件1级是指什么环境？",
+                options: [
+                    "A. 温度20±2°C，相对湿度50±2%",
+                    "B. 温度25±2°C，相对湿度65±2%",
+                    "C. 温度15±2°C，相对湿度45±2%",
+                    "D. 温度30°C，相对湿度70%",
+                ],
+                correct: 0,
+                standard: "GB/T 2918-2018",
+                explanation: "条件1级（标准条件）是温度20±2°C，相对湿度50±2%RH，用于各类纺织品测试。"
+            },
+            {
+                id: 4,
+                category: "工艺",
+                content: "GB/T 3917.1《纺织品 破裂强度的测定 第1部分 撕裂强度》中，何为'起始撕口'？",
+                options: [
+                    "A. 布料的最初缺陷",
+                    "B. 长度至少15mm，由机器或手工切割的裂口",
+                    "C. 布料自然的断裂部位",
+                    "D. 印染过程中产生的缺陷",
+                ],
+                correct: 1,
+                standard: "GB/T 3917.1-2016",
+                explanation: "起始撕口是测试前在试样上制作的标准缺口，长度至少15mm，用于测定撕裂强度。"
+            },
+            {
+                id: 5,
+                category: "版师",
+                content: "GB/T 1335.2《服装号型 女装》标准中，女装的号型如何表示？",
+                options: [
+                    "A. 仅用号（尺寸）表示",
+                    "B. 用型（体型代码）和号（尺寸）表示，如165/88A",
+                    "C. 仅用胸围表示",
+                    "D. 用身高和体重表示",
+                ],
+                correct: 1,
+                standard: "GB/T 1335.2-2008",
+                explanation: "女装号型由号（身高）和型（体型）组成，如165表示身高165cm，88表示胸围88cm，A表示体型。"
+            },
+            {
+                id: 6,
+                category: "版师",
+                content: "GB/T 6390《服装号型 男装》标准中，衣长是指哪两个部位之间的距离？",
+                options: [
+                    "A. 肩点到袖口",
+                    "B. 颈点到衣服下摆",
+                    "C. 腋点到衣服下摆",
+                    "D. 肩点到衣服下摆",
+                ],
+                correct: 3,
+                standard: "GB/T 6390-2008",
+                explanation: "衣长是指从肩点到衣服下摆的距离，是服装长度的重要尺寸标准。"
+            },
+            {
+                id: 7,
+                category: "通用",
+                content: "FZ/T 73049《婴幼儿及儿童纺织产品安全技术规范》中，A类和B类产品的定义区别是什么？",
+                options: [
+                    "A. 根据价格区分",
+                    "B. A类：直接与皮肤接触；B类：不直接与皮肤接触",
+                    "C. A类用于儿童，B类用于婴幼儿",
+                    "D. 根据颜色区分",
+                ],
+                correct: 1,
+                standard: "FZ/T 73049-2018",
+                explanation: "A类：直接与皮肤接触的产品；B类：不直接与皮肤接触的产品。A类标准更严格。"
+            },
+            {
+                id: 8,
+                category: "通用",
+                content: "GB 18401《国家纺织品基本安全技术规范》对甲醛含量的要求是什么？",
+                options: [
+                    "A. 不限制",
+                    "B. A类≤75mg/kg，B类≤300mg/kg，C类≤500mg/kg",
+                    "C. 所有类别≤100mg/kg",
+                    "D. ≤1000mg/kg",
+                ],
+                correct: 1,
+                standard: "GB 18401-2010",
+                explanation: "甲醛含量标准：A类（婴幼儿）≤75mg/kg，B类（直接接触皮肤）≤300mg/kg，C类（其他）≤500mg/kg。"
+            }
+        ];
+
+        // 应用状态
+        let appState = {
+            currentQuestion: 0,
+            userName: "",
+            department: "",
+            answers: {},
+            answered: false
+        };
+
+        // 页面切换函数
+        function showScreen(screenName) {
+            document.querySelectorAll('.welcome-screen, .info-screen, .question-screen, .result-screen').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelector('.' + screenName).classList.add('active');
+        }
+
+        function startTest() {
+            showScreen('info-screen');
+        }
+
+        function backToWelcome() {
+            showScreen('welcome-screen');
+        }
+
+        function submitInfo(event) {
+            event.preventDefault();
+            appState.userName = document.getElementById('username').value;
+            appState.department = document.getElementById('department').value;
+            appState.currentQuestion = 0;
+            appState.answers = {};
+            appState.answered = false;
+            showQuestion();
+            showScreen('question-screen');
+        }
+
+        // 题目显示
+        function showQuestion() {
+            const q = questions[appState.currentQuestion];
+
+            document.getElementById('currentNum').textContent = appState.currentQuestion + 1;
+            document.getElementById('categoryTag').textContent = q.category;
+            document.getElementById('standardInfo').textContent = `标准: ${q.standard}`;
+            document.getElementById('questionContent').textContent = q.content;
+
+            // 计算进度
+            const progress = ((appState.currentQuestion + 1) / questions.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+
+            // 渲染选项
+            const optionsContainer = document.getElementById('optionsContainer');
+            optionsContainer.innerHTML = '';
+            q.options.forEach((option, index) => {
+                const div = document.createElement('div');
+                div.className = 'option';
+                if (appState.answers[appState.currentQuestion] === index) {
+                    div.classList.add('selected');
+                }
+                div.innerHTML = `<input type="radio" name="option" value="${index}" ${appState.answers[appState.currentQuestion] === index ? 'checked' : ''}>
+                    <span>${option}</span>`;
+                div.onclick = () => selectOption(index);
+                optionsContainer.appendChild(div);
+            });
+
+            // 清空反馈
+            document.getElementById('feedback').classList.remove('show');
+            document.getElementById('submitBtn').textContent = '提交答案';
+            appState.answered = false;
+        }
+
+        function selectOption(index) {
+            if (!appState.answered) {
+                appState.answers[appState.currentQuestion] = index;
+                document.querySelectorAll('.option').forEach((el, i) => {
+                    el.classList.toggle('selected', i === index);
+                    el.querySelector('input').checked = i === index;
+                });
+            }
+        }
+
+        function submitAnswer() {
+            if (appState.answered) {
+                // 已反馈，继续下一题
+                nextQuestion();
+            } else {
+                // 首次提交，显示反馈
+                if (appState.answers[appState.currentQuestion] === undefined) {
+                    alert('请选择一个答案');
+                    return;
+                }
+                showFeedback();
+            }
+        }
+
+        function showFeedback() {
+            const q = questions[appState.currentQuestion];
+            const userAnswer = appState.answers[appState.currentQuestion];
+            const isCorrect = userAnswer === q.correct;
+
+            const feedback = document.getElementById('feedback');
+            feedback.innerHTML = `
+                <div class="feedback-title">${isCorrect ? '✓ 正确' : '✗ 错误'}</div>
+                <div class="feedback-content">
+                    <p><strong>解释：</strong> ${q.explanation}</p>
+                    ${!isCorrect ? `<p><strong>正确答案：</strong> ${String.fromCharCode(65 + q.correct)}</p>` : ''}
+                </div>
+            `;
+            feedback.className = `feedback show ${isCorrect ? 'correct' : 'incorrect'}`;
+
+            document.getElementById('submitBtn').textContent = appState.currentQuestion < questions.length - 1 ? '下一题' : '查看成绩';
+            appState.answered = true;
+        }
+
+        function nextQuestion() {
+            appState.currentQuestion++;
+            if (appState.currentQuestion < questions.length) {
+                showQuestion();
+            } else {
+                showResult();
+            }
+        }
+
+        // 成绩显示
+        function showResult() {
+            let correct = 0;
+            for (let i = 0; i < questions.length; i++) {
+                if (appState.answers[i] === questions[i].correct) {
+                    correct++;
+                }
+            }
+
+            const percentage = (correct / questions.length) * 100;
+            const score = Math.round(percentage);
+
+            document.getElementById('scoreCircle').textContent = score;
+            document.getElementById('resultName').textContent = appState.userName;
+            document.getElementById('resultDept').textContent = appState.department;
+            document.getElementById('resultScore').textContent = `${correct}/${questions.length} (${score}%)`;
+
+            // 评价
+            let rating = '';
+            let ratingClass = '';
+            if (percentage >= 90) {
+                rating = '✅ 优秀 - 对国标和行业标准掌握很好';
+                ratingClass = 'excellent';
+            } else if (percentage >= 75) {
+                rating = '👍 良好 - 对国标和行业标准掌握较好';
+                ratingClass = 'good';
+            } else if (percentage >= 60) {
+                rating = '📚 及格 - 需要进一步学习相关标准';
+                ratingClass = 'pass';
+            } else {
+                rating = '⚠️ 需改进 - 建议参加标准培训课程';
+                ratingClass = 'fail';
+            }
+
+            const ratingEl = document.getElementById('ratingText');
+            ratingEl.textContent = rating;
+            ratingEl.className = `rating ${ratingClass}`;
+
+            // 分类成绩
+            const categoryScores = {};
+            questions.forEach((q, i) => {
+                if (!categoryScores[q.category]) {
+                    categoryScores[q.category] = { total: 0, correct: 0 };
+                }
+                categoryScores[q.category].total++;
+                if (appState.answers[i] === q.correct) {
+                    categoryScores[q.category].correct++;
+                }
+            });
+
+            let categoryHTML = '<h4>分类成绩：</h4>';
+            for (const [cat, scores] of Object.entries(categoryScores)) {
+                const catPercentage = ((scores.correct / scores.total) * 100).toFixed(0);
+                categoryHTML += `<div class="category-score"><span>${cat}</span><span>${scores.correct}/${scores.total} (${catPercentage}%)</span></div>`;
+            }
+            document.getElementById('categoryScores').innerHTML = categoryHTML;
+
+            showScreen('result-screen');
+        }
+
+        function restartTest() {
+            showScreen('welcome-screen');
+        }
+
+        function downloadReport() {
+            const correct = Object.keys(appState.answers).filter(i =>
+                appState.answers[i] === questions[i].correct
+            ).length;
+
+            const report = {
+                name: appState.userName,
+                department: appState.department,
+                date: new Date().toLocaleString('zh-CN'),
+                totalQuestions: questions.length,
+                correctAnswers: correct,
+                score: Math.round((correct / questions.length) * 100),
+                answers: appState.answers
+            };
+
+            const dataStr = JSON.stringify(report, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `测试报告_${appState.userName}_${new Date().getTime()}.json`;
+            link.click();
+        }
+    </script>
+</body>
+</html>
