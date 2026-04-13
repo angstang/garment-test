@@ -467,22 +467,21 @@
             <!-- 欢迎页面 -->
             <div class="screen welcome-screen active">
                 <div class="welcome-content">
-                    <h2>欢迎使用新益服装产品技术理论测试</h2>
-                    <p>这是针对儿童产品和校服安全标准的专业知识测试系统</p>
+                    <h2>服装专业知识测试</h2>
+                    <p>多岗位智能评估系统</p>
 
                     <div class="info-item">
-                        <strong>📚 题库规模：</strong>
-                        <p>91道题（产品安全、面料知识、检测方法）</p>
+                        <strong>📋 测试规则：</strong>
+                        <p>
+                            • 随机出题：30道题<br>
+                            • 限制时间：15分钟（每题30秒）<br>
+                            • 自动交卷：时间到自动提交<br>
+                        </p>
                     </div>
 
                     <div class="info-item">
-                        <strong>🎲 每次抽取：</strong>
-                        <p>30道题（完全随机，每次不同）</p>
-                    </div>
-
-                    <div class="info-item">
-                        <strong>⏱️ 耗时：</strong>
-                        <p>约 15-20 分钟</p>
+                        <strong>⏱️ 时间管理：</strong>
+                        <p>全局倒计时 15分钟，单题超时自动跳下一题</p>
                     </div>
 
                     <div class="info-item">
@@ -521,6 +520,11 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="empid">工号（可选）</label>
+                        <input type="text" id="empid" placeholder="请输入工号">
+                    </div>
+
+                    <div class="form-group">
                         <label for="department">部门 *</label>
                         <select id="department" required>
                             <option value="">请选择</option>
@@ -531,6 +535,11 @@
                             <option value="管理层">管理层</option>
                             <option value="其他">其他</option>
                         </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">联系方式（可选）</label>
+                        <input type="tel" id="phone" placeholder="请输入手机或邮箱">
                     </div>
 
                     <div class="btn-group">
@@ -548,6 +557,10 @@
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
                     <span class="category" id="categoryTag">设计</span>
+                    <div style="text-align: right; font-weight: bold;">
+                        <div style="color: #667eea; font-size: 14px;">总时间: <span id="globalTime">15:00</span></div>
+                        <div style="color: #ff6b6b; font-size: 14px;">本题: <span id="questionTime">30</span>s</div>
+                    </div>
                 </div>
 
                 <div class="standard-info" id="standardInfo">标准: GB/T XXXX</div>
@@ -600,14 +613,17 @@
         </div>
 
         <div class="footer">
-            <p>新益服装产品技术理论测试系统 v3.0</p>
-            <p style="margin-top: 5px;">91道题库 | 产品安全 · 面料知识 · 检测方法</p>
+            <p>新益服装产品技术理论测试系统 v4.0 - 多岗位版本</p>
+            <p style="margin-top: 5px;">公用题库 + 设计师/工艺师/版师专属题库 | 每次随机抽取30道题</p>
         </div>
     </div>
 
     <!-- 导出库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- 配置文件 -->
+    <script src="config.js"></script>
 
     <script>
         // 应用状态
@@ -616,38 +632,102 @@
             selectedQuestions: [],
             currentQuestion: 0,
             userName: "",
+            empId: "",
             department: "",
+            phone: "",
             answers: {},
             answered: false,
-            testStartTime: null
+            testStartTime: null,
+            testEndTime: null,
+            allDeptQuestions: {}, // 存储各部门的题库
+            // 时间管理
+            totalTimeLimit: 15 * 60, // 15分钟（秒）
+            questionTimeLimit: 30,   // 30秒/题
+            remainingTime: 15 * 60,  // 剩余时间
+            questionStartTime: null,
+            globalTimer: null,
+            questionTimer: null,
+            timeExpired: false
         };
 
         // 初始化
         window.onload = function () {
             // 尝试从本地加载题库，如果失败则使用内置题库
-            loadQuestions();
+            loadAllQuestions();
         };
 
-        // 加载题库
-        function loadQuestions() {
-            // 首先尝试从JSON文件加载
-            fetch('questions_db.json')
+        // 加载所有题库（多部门）
+        function loadAllQuestions() {
+            // 首先尝试从多部门题库JSON文件加载
+            fetch('questions_multi_dept.json')
                 .then(response => response.json())
                 .then(data => {
-                    appState.allQuestions = data.questions;
-                    console.log(`✅ 已加载${data.questions.length}道题库`);
+                    appState.allDeptQuestions = {
+                        'public': data.public_questions || [],
+                        'designer': data.designer_questions || [],
+                        'technician': data.technician_questions || [],
+                        'patternmaker': data.patternmaker_questions || []
+                    };
+                    console.log(`✅ 已加载多部门题库`);
+                    console.log(`  - 公用题库: ${appState.allDeptQuestions.public.length}道题`);
+                    console.log(`  - 设计师专属: ${appState.allDeptQuestions.designer.length}道题`);
+                    console.log(`  - 工艺师专属: ${appState.allDeptQuestions.technician.length}道题`);
+                    console.log(`  - 版师专属: ${appState.allDeptQuestions.patternmaker.length}道题`);
                 })
                 .catch(error => {
-                    console.log('使用内置题库');
-                    appState.allQuestions = getBuiltInQuestions();
+                    console.log('多部门题库加载失败，尝试加载旧版题库');
+                    // 回退到原来的单一题库
+                    fetch('questions_db.json')
+                        .then(response => response.json())
+                        .then(data => {
+                            appState.allQuestions = data.questions;
+                            console.log(`✅ 已加载${data.questions.length}道题库`);
+                        })
+                        .catch(error => {
+                            console.log('使用内置题库');
+                            appState.allQuestions = getBuiltInQuestions();
+                        });
                 });
         }
 
-        // 随机抽取30道题
+        // 随机抽取30道题（支持多部门混合）
         function selectRandomQuestions(count = 30) {
-            const shuffled = [...appState.allQuestions].sort(() => Math.random() - 0.5);
-            appState.selectedQuestions = shuffled.slice(0, Math.min(count, appState.allQuestions.length));
+            let questionsPool = [];
+
+            // 始终添加公用题库
+            if (appState.allDeptQuestions.public && appState.allDeptQuestions.public.length > 0) {
+                questionsPool = [...appState.allDeptQuestions.public];
+            }
+
+            // 根据部门添加专属题库
+            const deptMap = {
+                '设计部': 'designer',
+                'Designer': 'designer',
+                '工艺部': 'technician',
+                'Technician': 'technician',
+                '版师部': 'patternmaker',
+                'PatternMaker': 'patternmaker',
+                '品质部': 'technician',  // 品质部与工艺师共用题库
+                '管理层': null,          // 管理层仅使用公用题库
+                '其他': null             // 其他岗位仅使用公用题库
+            };
+
+            const deptKey = deptMap[appState.department];
+            if (deptKey && appState.allDeptQuestions[deptKey] && appState.allDeptQuestions[deptKey].length > 0) {
+                questionsPool = [...questionsPool, ...appState.allDeptQuestions[deptKey]];
+            }
+
+            // 如果多部门题库为空，尝试使用旧的单一题库
+            if (questionsPool.length === 0) {
+                questionsPool = [...appState.allQuestions];
+            }
+
+            // 打乱并抽取
+            const shuffled = questionsPool.sort(() => Math.random() - 0.5);
+            appState.selectedQuestions = shuffled.slice(0, Math.min(count, shuffled.length));
             document.getElementById('totalNum').textContent = appState.selectedQuestions.length;
+
+            console.log(`✅ 为${appState.department}抽取${appState.selectedQuestions.length}道题`);
         }
 
         // 页面切换函数
@@ -663,7 +743,6 @@
 
             // 模拟加载延迟
             setTimeout(() => {
-                selectRandomQuestions(30);
                 showScreen('info-screen');
             }, 500);
         }
@@ -675,13 +754,96 @@
         function submitInfo(event) {
             event.preventDefault();
             appState.userName = document.getElementById('username').value;
+            appState.empId = document.getElementById('empid').value;
             appState.department = document.getElementById('department').value;
+            appState.phone = document.getElementById('phone').value;
             appState.currentQuestion = 0;
             appState.answers = {};
             appState.answered = false;
             appState.testStartTime = new Date();
+            appState.remainingTime = appState.totalTimeLimit; // 重置时间
+            appState.timeExpired = false;
+
+            // 根据选择的部门抽取题目
+            selectRandomQuestions(30);
+
             showQuestion();
             showScreen('question-screen');
+
+            // 启动全局计时器（下一次事件循环，确保DOM已更新）
+            setTimeout(() => {
+                startGlobalTimer();
+            }, 100);
+        }
+
+        // ========== 计时相关函数 ==========
+
+        // 格式化时间显示 mm:ss
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 启动全局计时器（15分钟）
+        function startGlobalTimer() {
+            appState.globalTimer = setInterval(() => {
+                appState.remainingTime--;
+                document.getElementById('globalTime').textContent = formatTime(appState.remainingTime);
+
+                // 时间危机提示
+                if (appState.remainingTime <= 60 && appState.remainingTime > 0) {
+                    document.getElementById('globalTime').style.color = '#ff6b6b';
+                }
+
+                // 时间到，自动交卷
+                if (appState.remainingTime <= 0) {
+                    clearInterval(appState.globalTimer);
+                    clearInterval(appState.questionTimer);
+                    appState.timeExpired = true;
+                    alert('⏱️ 时间到！系统已自动交卷');
+                    showResult();
+                }
+            }, 1000);
+        }
+
+        // 启动单题计时器（30秒）
+        function startQuestionTimer() {
+            // 先停止之前的计时器
+            if (appState.questionTimer) {
+                clearInterval(appState.questionTimer);
+            }
+
+            let questionTime = appState.questionTimeLimit;
+            document.getElementById('questionTime').textContent = questionTime;
+            document.getElementById('questionTime').style.color = '#ff9800';
+
+            appState.questionTimer = setInterval(() => {
+                questionTime--;
+                document.getElementById('questionTime').textContent = questionTime;
+
+                // 最后5秒变红
+                if (questionTime <= 5) {
+                    document.getElementById('questionTime').style.color = '#ff6b6b';
+                    document.getElementById('questionTime').style.fontWeight = 'bold';
+                }
+
+                // 超时自动跳下一题
+                if (questionTime <= 0) {
+                    clearInterval(appState.questionTimer);
+                    if (!appState.answered) {
+                        // 未答题自动选第一个选项
+                        selectOption(0);
+                    }
+                    submitAnswer();
+                }
+            }, 1000);
+        }
+
+        // 停止所有计时器
+        function stopAllTimers() {
+            if (appState.globalTimer) clearInterval(appState.globalTimer);
+            if (appState.questionTimer) clearInterval(appState.questionTimer);
         }
 
         // 题目显示
@@ -721,6 +883,9 @@
             document.getElementById('feedback').classList.remove('show');
             document.getElementById('submitBtn').textContent = '提交答案';
             appState.answered = false;
+
+            // 启动单题计时器
+            startQuestionTimer();
         }
 
         function selectOption(index) {
@@ -775,8 +940,110 @@
             }
         }
 
+        // ========== 飞书多维表格同步函数 ==========
+
+        // 准备成绩报告数据
+        function prepareReportData() {
+            let correct = 0;
+            for (let i = 0; i < appState.selectedQuestions.length; i++) {
+                if (appState.answers[i] === appState.selectedQuestions[i].correct) {
+                    correct++;
+                }
+            }
+
+            const percentage = (correct / appState.selectedQuestions.length) * 100;
+            const score = Math.round(percentage);
+            const testEndTime = new Date();
+            const duration = Math.floor((testEndTime - appState.testStartTime) / 1000);
+
+            return {
+                name: appState.userName,
+                empId: appState.empId || '无',
+                department: appState.department,
+                phone: appState.phone || '无',
+                score: score,
+                correctAnswers: correct,
+                totalQuestions: appState.selectedQuestions.length,
+                percentage: percentage.toFixed(1),
+                duration: Math.floor(duration / 60) + '分' + (duration % 60) + '秒',
+                testTime: appState.testStartTime.toLocaleString('zh-CN'),
+                timeExpired: appState.timeExpired ? '是' : '否'
+            };
+        }
+
+        // 同步数据到飞书多维表格（Webhook方式）
+        function syncToFeishuWebhook(reportData) {
+            // 使用从config.js导入的配置
+            if (!FEISHU_CONFIG.enabled) {
+                console.log('⚠️ 飞书同步已禁用，数据已保存到本地');
+                return;
+            }
+
+            if (!FEISHU_CONFIG.webhookUrl) {
+                console.log('⚠️ 飞书Webhook URL未配置，数据已保存到本地');
+                return;
+            }
+
+            const payload = {
+                data: {
+                    "姓名": reportData.name,
+                    "工号": reportData.empId,
+                    "部门": reportData.department,
+                    "联系方式": reportData.phone,
+                    "成绩": reportData.score + '%',
+                    "答对": reportData.correctAnswers + '/' + reportData.totalQuestions,
+                    "答题时间": reportData.duration,
+                    "超时": reportData.timeExpired,
+                    "测试时间": reportData.testTime
+                }
+            };
+
+            console.log('🔄 正在同步数据到飞书...', payload);
+
+            fetch(FEISHU_CONFIG.webhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => {
+                console.log('📡 飞书服务器响应:', response.status);
+                if (response.ok || response.status === 200) {
+                    console.log('✅ 数据已成功同步到飞书');
+                    return response.json().then(data => {
+                        console.log('飞书返回:', data);
+                    });
+                } else {
+                    console.error('❌ 飞书同步失败，状态码:', response.status);
+                    return response.text().then(text => {
+                        console.error('飞书错误信息:', text);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('❌ 飞书同步错误:', error);
+            });
+        }
+
+        // 保存数据到本地存储
+        function saveToLocalStorage(reportData) {
+            const key = `test_record_${appState.testStartTime.getTime()}`;
+            const records = JSON.parse(localStorage.getItem('testRecords') || '[]');
+            records.push({
+                timestamp: new Date().toISOString(),
+                data: reportData
+            });
+            localStorage.setItem('testRecords', JSON.stringify(records));
+            localStorage.setItem(key, JSON.stringify(reportData));
+            console.log('✅ 数据已保存到本地存储');
+        }
+
         // 成绩显示
         function showResult() {
+            // 停止所有计时器
+            stopAllTimers();
+
             let correct = 0;
             for (let i = 0; i < appState.selectedQuestions.length; i++) {
                 if (appState.answers[i] === appState.selectedQuestions[i].correct) {
@@ -831,6 +1098,15 @@
                 categoryHTML += `<div class="category-score"><span>${cat}</span><span>${scores.correct}/${scores.total} (${catPercentage}%)</span></div>`;
             }
             document.getElementById('categoryScores').innerHTML = categoryHTML;
+
+            // 准备报告数据
+            const reportData = prepareReportData();
+
+            // 保存到本地存储
+            saveToLocalStorage(reportData);
+
+            // 同步到飞书多维表格
+            syncToFeishuWebhook(reportData);
 
             showScreen('result-screen');
         }
