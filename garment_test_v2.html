@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -64,6 +65,7 @@
                 opacity: 0;
                 transform: translateY(10px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -414,8 +416,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .footer {
@@ -443,6 +450,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- 头部 -->
@@ -464,7 +472,7 @@
 
                     <div class="info-item">
                         <strong>📚 题库规模：</strong>
-                        <p>136道精选真实标准题</p>
+                        <p>124道精选真实标准题</p>
                     </div>
 
                     <div class="info-item">
@@ -480,14 +488,14 @@
                     <div class="info-item">
                         <strong>📋 覆盖标准：</strong>
                         <p>
-                           <strong style="color: #f5222d;">强制标准：</strong><br>
-                            • GB 31701-2015（婴幼儿及儿童纺织产品安全技术规范）<br>
-                            • GB 18401-2010（国家纺织产品基本安全技术规范）<br>
+                            <strong style="color: #f5222d;">强制标准：</strong><br>
+                            • GB 31701-2015（儿童服装安全技术规范）<br>
+                            • GB 18401-2010（纺织品基本安全规范）<br>
                             <strong style="color: #667eea;">校服标准：</strong><br>
                             • GB/T 31888-2015（中小学生校服）<br>
                             • GB/T 23328-2009（机织学生服装）<br>
                             <strong style="color: #52c41a;">产品标准：</strong><br>
-                            • FZ/T 73049-2018（婴幼儿及儿童产品）<br>
+                            • FZ/T 73049-2018（婴幼儿及儿童产品）
                         </p>
                     </div>
 
@@ -615,7 +623,7 @@
         };
 
         // 初始化
-        window.onload = function() {
+        window.onload = function () {
             // 尝试从本地加载题库，如果失败则使用内置题库
             loadQuestions();
         };
@@ -975,9 +983,9 @@
                     <div class="category-scores">
                         <h4 style="margin-top: 0;">分类成绩详情：</h4>
                         ${Object.entries(categoryScores).map(([cat, scores]) => {
-                            const catPercentage = ((scores.correct / scores.total) * 100).toFixed(0);
-                            return `<div class="category-score"><span>${cat}</span><span>${scores.correct}/${scores.total} (${catPercentage}%)</span></div>`;
-                        }).join('')}
+                const catPercentage = ((scores.correct / scores.total) * 100).toFixed(0);
+                return `<div class="category-score"><span>${cat}</span><span>${scores.correct}/${scores.total} (${catPercentage}%)</span></div>`;
+            }).join('')}
                     </div>
 
                     <div class="details">
@@ -1058,4 +1066,5 @@
         }
     </script>
 </body>
+
 </html>
