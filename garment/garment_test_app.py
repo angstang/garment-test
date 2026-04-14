@@ -47,7 +47,8 @@ class GarmentTestApp:
         questions = []
         try:
             # 尝试从questions_db.json加载
-            with open('questions_db.json', 'r', encoding='utf-8') as f:
+            json_path = Path(__file__).parent / 'questions_db.json'
+            with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 for q in data.get('questions', []):
                     questions.append(Question(

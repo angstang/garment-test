@@ -572,6 +572,7 @@
                 <div class="feedback" id="feedback"></div>
 
                 <div class="btn-group">
+                    <button class="btn-secondary" id="prevBtn" onclick="prevQuestion()" style="display:none;">⬅️ 上一题</button>
                     <button class="btn-primary" id="submitBtn" onclick="submitAnswer()">提交答案</button>
                 </div>
             </div>
@@ -603,9 +604,9 @@
                     <div class="category-scores" id="categoryScores"></div>
 
                     <div class="btn-group">
-                        <button class="btn-secondary" onclick="downloadReport()">📥 下载JSON</button>
                         <button class="btn-secondary" onclick="exportPDF()">📄 导出PDF</button>
                         <button class="btn-secondary" onclick="downloadAsImage()">🖼️ 保存图片</button>
+                        <button class="btn-secondary" onclick="shareResult()">📱 分享</button>
                         <button class="btn-primary" onclick="restartTest()">🔄 重新测试</button>
                     </div>
                 </div>
@@ -882,53 +883,45 @@
             // 清空反馈
             document.getElementById('feedback').classList.remove('show');
             document.getElementById('submitBtn').textContent = '提交答案';
-            appState.answered = false;
+
+            // 更新上一题按钮显示（移除下一题按钮，不再需要修改答案）
+            document.getElementById('prevBtn').style.display =
+                appState.currentQuestion > 0 ? 'inline-block' : 'none';
+            document.getElementById('nextBtn').style.display = 'none';
+            document.getElementById('submitBtn').style.display = 'inline-block';
 
             // 启动单题计时器
             startQuestionTimer();
         }
 
         function selectOption(index) {
-            if (!appState.answered) {
-                appState.answers[appState.currentQuestion] = index;
-                document.querySelectorAll('.option').forEach((el, i) => {
-                    el.classList.toggle('selected', i === index);
-                    el.querySelector('input').checked = i === index;
-                });
-            }
+            // 用户可以选择答案
+            appState.answers[appState.currentQuestion] = index;
+            document.querySelectorAll('.option').forEach((el, i) => {
+                el.classList.toggle('selected', i === index);
+                el.querySelector('input').checked = i === index;
+            });
         }
 
         function submitAnswer() {
-            if (appState.answered) {
-                // 已反馈，继续下一题
-                nextQuestion();
+            // 不管对错都直接跳转
+            if (appState.answers[appState.currentQuestion] === undefined) {
+                alert('请选择一个答案');
+                return;
+            }
+
+            // 直接跳转到下一题，不显示反馈
+            if (appState.currentQuestion < appState.selectedQuestions.length - 1) {
+                appState.currentQuestion++;
+                showQuestion();
             } else {
-                // 首次提交，显示反馈
-                if (appState.answers[appState.currentQuestion] === undefined) {
-                    alert('请选择一个答案');
-                    return;
-                }
-                showFeedback();
+                showResult();
             }
         }
 
         function showFeedback() {
-            const q = appState.selectedQuestions[appState.currentQuestion];
-            const userAnswer = appState.answers[appState.currentQuestion];
-            const isCorrect = userAnswer === q.correct;
-
-            const feedback = document.getElementById('feedback');
-            feedback.innerHTML = `
-                <div class="feedback-title">${isCorrect ? '✅ 正确' : '❌ 错误'}</div>
-                <div class="feedback-content">
-                    <p><strong>解释：</strong> ${q.explanation}</p>
-                    ${!isCorrect ? `<p style="margin-top: 10px;"><strong>正确答案：</strong> ${String.fromCharCode(65 + q.correct)}</p>` : ''}
-                </div>
-            `;
-            feedback.className = `feedback show ${isCorrect ? 'correct' : 'incorrect'}`;
-
-            document.getElementById('submitBtn').textContent = appState.currentQuestion < appState.selectedQuestions.length - 1 ? '下一题' : '查看成绩';
-            appState.answered = true;
+            // 此函数已停用 - 新的答题流程直接跳转，不显示反馈
+            // 所有错题详解在成绩报告页面统一显示
         }
 
         function nextQuestion() {
@@ -937,6 +930,13 @@
                 showQuestion();
             } else {
                 showResult();
+            }
+        }
+
+        function prevQuestion() {
+            if (appState.currentQuestion > 0) {
+                appState.currentQuestion--;
+                showQuestion();
             }
         }
 
@@ -1098,6 +1098,38 @@
                 categoryHTML += `<div class="category-score"><span>${cat}</span><span>${scores.correct}/${scores.total} (${catPercentage}%)</span></div>`;
             }
             document.getElementById('categoryScores').innerHTML = categoryHTML;
+
+            // 生成错题分析
+            let wrongQuestionsHTML = '';
+            const wrongQuestions = [];
+            appState.selectedQuestions.forEach((q, i) => {
+                if (appState.answers[i] !== q.correct) {
+                    wrongQuestions.push({
+                        index: i,
+                        question: q,
+                        userAnswer: appState.answers[i]
+                    });
+                }
+            });
+
+            if (wrongQuestions.length > 0) {
+                wrongQuestionsHTML = '<div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #eee;"><h4>❌ 错题分析：</h4>';
+                wrongQuestions.forEach((item, idx) => {
+                    const q = item.question;
+                    wrongQuestionsHTML += `
+                        <div style="background: #fff3cd; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #ff9800;">
+                            <p style="margin: 0 0 10px 0;"><strong>第 ${item.index + 1} 题 - ${q.category}</strong></p>
+                            <p style="margin: 5px 0; color: #333;"><strong>题目：</strong>${q.content}</p>
+                            <p style="margin: 5px 0; color: #d32f2f;"><strong>你的答案：</strong>${String.fromCharCode(65 + item.userAnswer)} - ${q.options[item.userAnswer]}</p>
+                            <p style="margin: 5px 0; color: #388e3c;"><strong>正确答案：</strong>${String.fromCharCode(65 + q.correct)} - ${q.options[q.correct]}</p>
+                            <p style="margin: 5px 0; color: #1976d2;"><strong>解释：</strong>${q.explanation}</p>
+                            <p style="margin: 5px 0; font-size: 12px; color: #666;"><strong>标准：</strong>${q.standard}</p>
+                        </div>
+                    `;
+                });
+                wrongQuestionsHTML += '</div>';
+            }
+            document.getElementById('categoryScores').innerHTML += wrongQuestionsHTML;
 
             // 准备报告数据
             const reportData = prepareReportData();
@@ -1314,6 +1346,70 @@
                 console.error(error);
             } finally {
                 document.body.removeChild(element);
+            }
+        }
+
+        // 分享功能
+        function shareResult() {
+            // 计算成绩
+            let correct = 0;
+            for (let i = 0; i < appState.selectedQuestions.length; i++) {
+                if (appState.answers[i] === appState.selectedQuestions[i].correct) {
+                    correct++;
+                }
+            }
+            const percentage = (correct / appState.selectedQuestions.length) * 100;
+            const score = Math.round(percentage);
+
+            // 生成分享文本
+            const shareText = `🎯 我在新益服装产品技术理论测试中得到 ${score}% 的成绩 (${correct}/${appState.selectedQuestions.length}) | 来自部门: ${appState.department}`;
+            const shareUrl = window.location.href;
+
+            // 检查是否支持原生分享API
+            if (navigator.share) {
+                navigator.share({
+                    title: '成绩分享',
+                    text: shareText,
+                    url: shareUrl
+                }).catch(err => console.log('分享取消:', err));
+            } else {
+                // 如果不支持原生分享，显示分享选项
+                showShareOptions(shareText, shareUrl);
+            }
+        }
+
+        // 显示分享选项（无原生API时）
+        function showShareOptions(shareText, shareUrl) {
+            const platform = prompt(
+                '请选择分享平台:\\n' +
+                '1 - 微信\\n' +
+                '2 - QQ\\n' +
+                '3 - 复制到剪贴板',
+                '3'
+            );
+
+            if (platform === '1') {
+                // 微信分享（需要微信SDK，这里显示提示）
+                alert('📱 请通过微信内置浏览器打开此页面，即可使用微信分享功能');
+            } else if (platform === '2') {
+                // QQ分享
+                const qqShareUrl = `https://connect.qq.com/widget/shareqq/index.html?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent('成绩分享')}&desc=${encodeURIComponent(shareText)}`;
+                window.open(qqShareUrl);
+            } else if (platform === '3') {
+                // 复制到剪贴板
+                const textToCopy = shareText + '\\n' + shareUrl;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    alert('✅ 已复制到剪贴板，可粘贴分享到任何平台');
+                }).catch(() => {
+                    // 备用方案
+                    const textarea = document.createElement('textarea');
+                    textarea.value = textToCopy;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    alert('✅ 已复制到剪贴板，可粘贴分享到任何平台');
+                });
             }
         }
 
