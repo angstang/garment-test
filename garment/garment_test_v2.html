@@ -471,7 +471,7 @@
                     <div class="info-item">
                         <strong>📋 测试规则：</strong>
                         <p>
-                            • 随机出题：30道题<br>
+                            • 随机出题：36道题<br>
                             • 限制时间：15分钟（每题30秒）<br>
                             • 自动交卷：时间到自动提交<br>
                         </p>
@@ -503,7 +503,7 @@
             <div class="screen loading-screen">
                 <div class="loading">
                     <div class="loading-spinner"></div>
-                    <p>正在加载题库并随机抽取30道题...</p>
+                    <p>正在加载题库并随机抽取36道题...</p>
                     <p style="margin-top: 10px; font-size: 12px; color: #999;">请稍候</p>
                 </div>
             </div>
@@ -549,7 +549,7 @@
             <!-- 题目页面 -->
             <div class="screen question-screen">
                 <div class="question-header">
-                    <span class="question-num"><span id="currentNum">1</span>/<span id="totalNum">30</span></span>
+                    <span class="question-num"><span id="currentNum">1</span>/<span id="totalNum">36</span></span>
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
@@ -612,7 +612,7 @@
 
         <div class="footer">
             <p>新益服装产品技术理论测试系统 v4.0 - 多岗位版本</p>
-            <p style="margin-top: 5px;">公用题库 + 设计师/工艺师/版师专属题库 | 每次随机抽取30道题</p>
+            <p style="margin-top: 5px;">完整题库（36道题：单选24道、多选5道、问答3道）| 每次随机抽取36道题</p>
         </div>
     </div>
 
@@ -732,23 +732,28 @@
                 });
         }
 
-        // 随机抽取30道题（支持多部门混合）
-        function selectRandomQuestions(count = 30) {
+        // 随机抽取36道题（支持单选、多选、问答混合）
+        function selectRandomQuestions(count = 36) {
             let questionsPool = [];
 
-            // 优先级1：使用新的完整题库（36道题 - 单选、多选、问答）
+            // 优先级1：使用allQuestions（应该包含36道新题库或24道旧题库）
             if (appState.allQuestions && appState.allQuestions.length > 0) {
-                // 检查是否包含新的题型（essay、multiple）
-                const hasNewTypes = appState.allQuestions.some(q => q.type === 'essay' || q.type === 'multiple');
-                if (hasNewTypes || appState.allQuestions.length > 30) {
-                    // 这是新的36道题库
-                    questionsPool = [...appState.allQuestions];
-                    console.log(`✅ 使用新的完整题库: ${questionsPool.length}道题 (包含单选、多选、问答)`);
-                }
+                questionsPool = [...appState.allQuestions];
+                console.log(`✅ 使用allQuestions题库: ${questionsPool.length}道题`);
+
+                // 检查题型
+                const questionTypes = {};
+                questionsPool.forEach(q => {
+                    const type = q.type || 'single';
+                    questionTypes[type] = (questionTypes[type] || 0) + 1;
+                });
+                console.log('题型分布:', questionTypes);
             }
 
-            // 优先级2：使用多部门题库（如果完整题库为空）
+            // 优先级2：使用多部门题库（如果allQuestions为空）
             if (questionsPool.length === 0) {
+                console.log('ℹ️ allQuestions为空，尝试多部门题库');
+
                 // 始终添加公用题库
                 if (appState.allDeptQuestions && appState.allDeptQuestions.public && appState.allDeptQuestions.public.length > 0) {
                     questionsPool = [...appState.allDeptQuestions.public];
@@ -762,9 +767,9 @@
                     'Technician': 'technician',
                     '版师部': 'patternmaker',
                     'PatternMaker': 'patternmaker',
-                    '品质部': 'technician',  // 品质部与工艺师共用题库
-                    '管理层': null,          // 管理层仅使用公用题库
-                    '其他': null             // 其他岗位仅使用公用题库
+                    '品质部': 'technician',
+                    '管理层': null,
+                    '其他': null
                 };
 
                 const deptKey = deptMap[appState.department];
@@ -910,7 +915,7 @@
                 console.log(`✅ 用户信息已保存: ${appState.userName} - ${appState.department}`);
 
                 // 根据选择的部门抽取题目
-                selectRandomQuestions(30);
+                selectRandomQuestions(36);
                 console.log(`✅ 已抽取${appState.selectedQuestions.length}道题`);
 
                 showQuestion();
