@@ -513,7 +513,7 @@
 
             <!-- 信息填写页面 -->
             <div class="screen info-screen">
-                <form onsubmit="submitInfo(event)">
+                <div>
                     <div class="form-group">
                         <label for="username">姓名 *</label>
                         <input type="text" id="username" required placeholder="请输入您的姓名">
@@ -544,9 +544,9 @@
 
                     <div class="btn-group">
                         <button type="button" class="btn-secondary" onclick="backToWelcome()">返回</button>
-                        <button type="submit" class="btn-primary">开始答题</button>
+                        <button type="button" class="btn-primary" onclick="submitInfoDirect()">开始答题</button>
                     </div>
-                </form>
+                </div>
             </div>
 
             <!-- 题目页面 -->
@@ -657,14 +657,24 @@
             loadAllQuestions();
         };
 
-        // 加载所有题库（多部门）
+        // 加载所有题库（多部门）- 带超时机制
         function loadAllQuestions() {
+            const timeoutMs = 3000; // 3秒超时
+
+            // 创建超时Promise
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('加载超时')), timeoutMs)
+            );
+
             // 首先尝试从多部门题库JSON文件加载
-            fetch('garment/questions_multi_dept.json')
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    return response.json();
-                })
+            Promise.race([
+                fetch('garment/questions_multi_dept.json')
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        return response.json();
+                    }),
+                timeoutPromise
+            ])
                 .then(data => {
                     appState.allDeptQuestions = {
                         'public': data.public_questions || [],
@@ -673,27 +683,26 @@
                         'patternmaker': data.patternmaker_questions || []
                     };
                     console.log(`✅ 已加载多部门题库`);
-                    console.log(`  - 公用题库: ${appState.allDeptQuestions.public.length}道题`);
-                    console.log(`  - 设计师专属: ${appState.allDeptQuestions.designer.length}道题`);
-                    console.log(`  - 工艺师专属: ${appState.allDeptQuestions.technician.length}道题`);
-                    console.log(`  - 版师专属: ${appState.allDeptQuestions.patternmaker.length}道题`);
                 })
                 .catch(error => {
-                    console.warn('❌ 多部门题库加载失败:', error.message);
-                    console.log('尝试加载旧版题库...');
+                    console.warn('⏱️ 多部门题库加载失败/超时:', error.message);
+
                     // 回退到原来的单一题库
-                    fetch('garment/questions_db.json')
-                        .then(response => {
-                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                            return response.json();
-                        })
+                    Promise.race([
+                        fetch('garment/questions_db.json')
+                            .then(response => {
+                                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                                return response.json();
+                            }),
+                        timeoutPromise
+                    ])
                         .then(data => {
                             appState.allQuestions = data.questions || [];
-                            console.log(`✅ 已加载${appState.allQuestions.length}道题库`);
+                            console.log(`✅ 已加载旧版${appState.allQuestions.length}道题库`);
                         })
                         .catch(error => {
-                            console.warn('❌ 旧版题库也加载失败:', error.message);
-                            console.log('使用内置题库...');
+                            console.warn('⏱️ 旧版题库也加载失败/超时');
+                            console.log('✅ 使用内置题库...');
                             appState.allQuestions = getBuiltInQuestions();
                             console.log(`✅ 已加载内置${appState.allQuestions.length}道题库`);
                         });
@@ -750,17 +759,29 @@
 
         // 页面切换函数
         function showScreen(screenName) {
-            document.querySelectorAll('.screen').forEach(el => {
-                el.classList.remove('active');
-            });
-            document.querySelector('.' + screenName).classList.add('active');
+            try {
+                document.querySelectorAll('.screen').forEach(el => {
+                    el.classList.remove('active');
+                });
+                const targetScreen = document.querySelector('.' + screenName);
+                if (!targetScreen) {
+                    console.error(`❌ 找不到screen: .${screenName}`);
+                    return;
+                }
+                targetScreen.classList.add('active');
+                console.log(`✅ 切换到: ${screenName}`);
+            } catch (error) {
+                console.error(`❌ showScreen错误: ${error.message}`);
+            }
         }
 
         function startTest() {
+            console.log('🔄 startTest 被调用');
             showScreen('loading-screen');
 
             // 模拟加载延迟
             setTimeout(() => {
+                console.log('🔄 加载完成，切换到info-screen');
                 showScreen('info-screen');
             }, 500);
         }
@@ -769,29 +790,60 @@
             showScreen('welcome-screen');
         }
 
+        function submitInfoDirect() {
+            console.log('🔵 submitInfoDirect() 被调用');
+            try {
+                // 验证必填字段
+                const username = document.getElementById('username').value.trim();
+                const department = document.getElementById('department').value;
+
+                if (!username) {
+                    alert('❌ 请输入姓名');
+                    return;
+                }
+                if (!department) {
+                    alert('❌ 请选择部门');
+                    return;
+                }
+
+                appState.userName = username;
+                appState.empId = document.getElementById('empid').value;
+                appState.department = department;
+                appState.phone = document.getElementById('phone').value;
+                appState.currentQuestion = 0;
+                appState.answers = {};
+                appState.answered = false;
+                appState.testStartTime = new Date();
+                appState.remainingTime = appState.totalTimeLimit;
+                appState.timeExpired = false;
+
+                console.log(`✅ 用户信息已保存: ${appState.userName} - ${appState.department}`);
+
+                // 根据选择的部门抽取题目
+                selectRandomQuestions(30);
+                console.log(`✅ 已抽取${appState.selectedQuestions.length}道题`);
+
+                showQuestion();
+                console.log('✅ 已显示第一道题');
+
+                showScreen('question-screen');
+                console.log('✅ 已切换到答题页面');
+
+                // 启动全局计时器
+                setTimeout(() => {
+                    startGlobalTimer();
+                    console.log('✅ 计时器已启动');
+                }, 100);
+            } catch (error) {
+                console.error('❌ submitInfoDirect() 出错:', error);
+                console.error('错误堆栈:', error.stack);
+                alert('❌ 程序出错，请查看控制台');
+            }
+        }
+
         function submitInfo(event) {
             event.preventDefault();
-            appState.userName = document.getElementById('username').value;
-            appState.empId = document.getElementById('empid').value;
-            appState.department = document.getElementById('department').value;
-            appState.phone = document.getElementById('phone').value;
-            appState.currentQuestion = 0;
-            appState.answers = {};
-            appState.answered = false;
-            appState.testStartTime = new Date();
-            appState.remainingTime = appState.totalTimeLimit; // 重置时间
-            appState.timeExpired = false;
-
-            // 根据选择的部门抽取题目
-            selectRandomQuestions(30);
-
-            showQuestion();
-            showScreen('question-screen');
-
-            // 启动全局计时器（下一次事件循环，确保DOM已更新）
-            setTimeout(() => {
-                startGlobalTimer();
-            }, 100);
+            submitInfoDirect();
         }
 
         // ========== 计时相关函数 ==========
@@ -901,10 +953,9 @@
             document.getElementById('feedback').classList.remove('show');
             document.getElementById('submitBtn').textContent = '提交答案';
 
-            // 更新上一题按钮显示（移除下一题按钮，不再需要修改答案）
+            // 更新按钮显示
             document.getElementById('prevBtn').style.display =
                 appState.currentQuestion > 0 ? 'inline-block' : 'none';
-            document.getElementById('nextBtn').style.display = 'none';
             document.getElementById('submitBtn').style.display = 'inline-block';
 
             // 启动单题计时器
