@@ -219,7 +219,7 @@ def integrate_questions(questions: List[Dict], db_path: str = 'questions_multi_d
     current_id = max_id + 1
 
     # 为每道题分配ID并添加到所有部门
-    dept_keys = ['设计师_questions', '工艺师_questions', '版师_questions']
+    dept_keys = ['designer_questions', 'technician_questions', 'patternmaker_questions']
 
     for dept_key in dept_keys:
         if dept_key not in db:
@@ -343,9 +343,9 @@ def main():
             db = json.load(f)
 
         print("\n📈 题库最终状态:")
-        for key in ['公用题库', '设计师_questions', '工艺师_questions', '版师_questions']:
+        for key in ['public_questions', 'designer_questions', 'technician_questions', 'patternmaker_questions']:
             if key in db:
-                key_display = key if key == '公用题库' else key.replace('_questions', '')
+                key_display = key.replace('_questions', '')
                 count = len(db[key])
                 print(f"  {key_display}: {count} 道")
 
