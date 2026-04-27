@@ -989,18 +989,33 @@
         }
 
         function submitAnswer() {
-            // 不管对错都直接跳转
-            if (appState.answers[appState.currentQuestion] === undefined) {
-                alert('请选择一个答案');
-                return;
-            }
+            try {
+                // 检查是否选择了答案
+                if (appState.answers[appState.currentQuestion] === undefined) {
+                    alert('请选择一个答案');
+                    return;
+                }
 
-            // 直接跳转到下一题，不显示反馈
-            if (appState.currentQuestion < appState.selectedQuestions.length - 1) {
-                appState.currentQuestion++;
-                showQuestion();
-            } else {
-                showResult();
+                const isLastQuestion = appState.currentQuestion >= appState.selectedQuestions.length - 1;
+                console.log(`✅ 提交答案: 第 ${appState.currentQuestion + 1}/${appState.selectedQuestions.length} 题, 是否为最后一题: ${isLastQuestion}`);
+
+                // 直接跳转到下一题，不显示反馈
+                if (!isLastQuestion) {
+                    appState.currentQuestion++;
+                    showQuestion();
+                } else {
+                    console.log('🔄 调用 showResult()...');
+                    showResult();
+                }
+            } catch (error) {
+                console.error('❌ submitAnswer 出错:', error);
+                console.error('错误堆栈:', error.stack);
+                console.error('当前状态:', {
+                    currentQuestion: appState.currentQuestion,
+                    totalQuestions: appState.selectedQuestions.length,
+                    answers: appState.answers
+                });
+                alert('提交答案时出错，请刷新页面重试');
             }
         }
 
@@ -1126,106 +1141,129 @@
 
         // 成绩显示
         function showResult() {
-            // 停止所有计时器
-            stopAllTimers();
+            try {
+                // 停止所有计时器
+                stopAllTimers();
+                console.log('🏁 开始计算成绩...');
 
-            let correct = 0;
-            for (let i = 0; i < appState.selectedQuestions.length; i++) {
-                if (appState.answers[i] === appState.selectedQuestions[i].correct) {
-                    correct++;
+                let correct = 0;
+                for (let i = 0; i < appState.selectedQuestions.length; i++) {
+                    if (appState.answers[i] === appState.selectedQuestions[i].correct) {
+                        correct++;
+                    }
                 }
-            }
 
-            const percentage = (correct / appState.selectedQuestions.length) * 100;
-            const score = Math.round(percentage);
+                const percentage = (correct / appState.selectedQuestions.length) * 100;
+                const score = Math.round(percentage);
+                console.log(`📊 成绩: ${correct}/${appState.selectedQuestions.length} (${score}%)`);
 
-            document.getElementById('scoreCircle').textContent = score;
-            document.getElementById('resultName').textContent = appState.userName;
-            document.getElementById('resultDept').textContent = appState.department;
-            document.getElementById('resultScore').textContent = `${correct}/${appState.selectedQuestions.length} (${score}%)`;
+                document.getElementById('scoreCircle').textContent = score;
+                document.getElementById('resultName').textContent = appState.userName;
+                document.getElementById('resultDept').textContent = appState.department;
+                document.getElementById('resultScore').textContent = `${correct}/${appState.selectedQuestions.length} (${score}%)`;
 
-            // 评价
-            let rating = '';
-            let ratingClass = '';
-            if (percentage >= 90) {
-                rating = '🏆 优秀 - 对儿童产品和校服安全标准掌握很好';
-                ratingClass = 'excellent';
-            } else if (percentage >= 75) {
-                rating = '👍 良好 - 对安全标准掌握较好';
-                ratingClass = 'good';
-            } else if (percentage >= 60) {
-                rating = '📚 及格 - 需要进一步学习相关标准';
-                ratingClass = 'pass';
-            } else {
-                rating = '⚠️ 需改进 - 建议参加标准培训课程';
-                ratingClass = 'fail';
-            }
-
-            const ratingEl = document.getElementById('ratingText');
-            ratingEl.textContent = rating;
-            ratingEl.className = `rating ${ratingClass}`;
-
-            // 分类成绩
-            const categoryScores = {};
-            appState.selectedQuestions.forEach((q, i) => {
-                if (!categoryScores[q.category]) {
-                    categoryScores[q.category] = { total: 0, correct: 0 };
+                // 评价
+                let rating = '';
+                let ratingClass = '';
+                if (percentage >= 90) {
+                    rating = '🏆 优秀 - 对儿童产品和校服安全标准掌握很好';
+                    ratingClass = 'excellent';
+                } else if (percentage >= 75) {
+                    rating = '👍 良好 - 对安全标准掌握较好';
+                    ratingClass = 'good';
+                } else if (percentage >= 60) {
+                    rating = '📚 及格 - 需要进一步学习相关标准';
+                    ratingClass = 'pass';
+                } else {
+                    rating = '⚠️ 需改进 - 建议参加标准培训课程';
+                    ratingClass = 'fail';
                 }
-                categoryScores[q.category].total++;
-                if (appState.answers[i] === q.correct) {
-                    categoryScores[q.category].correct++;
-                }
-            });
 
-            let categoryHTML = '<h4>📊 分类成绩：</h4>';
-            for (const [cat, scores] of Object.entries(categoryScores)) {
-                const catPercentage = ((scores.correct / scores.total) * 100).toFixed(0);
-                categoryHTML += `<div class="category-score"><span>${cat}</span><span>${scores.correct}/${scores.total} (${catPercentage}%)</span></div>`;
-            }
-            document.getElementById('categoryScores').innerHTML = categoryHTML;
+                const ratingEl = document.getElementById('ratingText');
+                ratingEl.textContent = rating;
+                ratingEl.className = `rating ${ratingClass}`;
 
-            // 生成错题分析
-            let wrongQuestionsHTML = '';
-            const wrongQuestions = [];
-            appState.selectedQuestions.forEach((q, i) => {
-                if (appState.answers[i] !== q.correct) {
-                    wrongQuestions.push({
-                        index: i,
-                        question: q,
-                        userAnswer: appState.answers[i]
-                    });
-                }
-            });
-
-            if (wrongQuestions.length > 0) {
-                wrongQuestionsHTML = '<div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #eee;"><h4>❌ 错题分析：</h4>';
-                wrongQuestions.forEach((item, idx) => {
-                    const q = item.question;
-                    wrongQuestionsHTML += `
-                        <div style="background: #fff3cd; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #ff9800;">
-                            <p style="margin: 0 0 10px 0;"><strong>第 ${item.index + 1} 题 - ${q.category}</strong></p>
-                            <p style="margin: 5px 0; color: #333;"><strong>题目：</strong>${q.content}</p>
-                            <p style="margin: 5px 0; color: #d32f2f;"><strong>你的答案：</strong>${String.fromCharCode(65 + item.userAnswer)} - ${q.options[item.userAnswer]}</p>
-                            <p style="margin: 5px 0; color: #388e3c;"><strong>正确答案：</strong>${String.fromCharCode(65 + q.correct)} - ${q.options[q.correct]}</p>
-                            <p style="margin: 5px 0; color: #1976d2;"><strong>解释：</strong>${q.explanation}</p>
-                            <p style="margin: 5px 0; font-size: 12px; color: #666;"><strong>标准：</strong>${q.standard}</p>
-                        </div>
-                    `;
+                // 分类成绩
+                const categoryScores = {};
+                appState.selectedQuestions.forEach((q, i) => {
+                    if (!categoryScores[q.category]) {
+                        categoryScores[q.category] = { total: 0, correct: 0 };
+                    }
+                    categoryScores[q.category].total++;
+                    if (appState.answers[i] === q.correct) {
+                        categoryScores[q.category].correct++;
+                    }
                 });
-                wrongQuestionsHTML += '</div>';
+
+                let categoryHTML = '<h4>📊 分类成绩：</h4>';
+                for (const [cat, scores] of Object.entries(categoryScores)) {
+                    const catPercentage = ((scores.correct / scores.total) * 100).toFixed(0);
+                    categoryHTML += `<div class="category-score"><span>${cat}</span><span>${scores.correct}/${scores.total} (${catPercentage}%)</span></div>`;
+                }
+                document.getElementById('categoryScores').innerHTML = categoryHTML;
+
+                // 生成错题分析
+                let wrongQuestionsHTML = '';
+                const wrongQuestions = [];
+                appState.selectedQuestions.forEach((q, i) => {
+                    if (appState.answers[i] !== q.correct) {
+                        wrongQuestions.push({
+                            index: i,
+                            question: q,
+                            userAnswer: appState.answers[i]
+                        });
+                    }
+                });
+
+                if (wrongQuestions.length > 0) {
+                    wrongQuestionsHTML = '<div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #eee;"><h4>❌ 错题分析：</h4>';
+                    wrongQuestions.forEach((item, idx) => {
+                        const q = item.question;
+                        wrongQuestionsHTML += `
+                            <div style="background: #fff3cd; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #ff9800;">
+                                <p style="margin: 0 0 10px 0;"><strong>第 ${item.index + 1} 题 - ${q.category}</strong></p>
+                                <p style="margin: 5px 0; color: #333;"><strong>题目：</strong>${q.content}</p>
+                                <p style="margin: 5px 0; color: #d32f2f;"><strong>你的答案：</strong>${String.fromCharCode(65 + item.userAnswer)} - ${q.options[item.userAnswer]}</p>
+                                <p style="margin: 5px 0; color: #388e3c;"><strong>正确答案：</strong>${String.fromCharCode(65 + q.correct)} - ${q.options[q.correct]}</p>
+                                <p style="margin: 5px 0; color: #1976d2;"><strong>解释：</strong>${q.explanation}</p>
+                                <p style="margin: 5px 0; font-size: 12px; color: #666;"><strong>标准：</strong>${q.standard}</p>
+                            </div>
+                        `;
+                    });
+                    wrongQuestionsHTML += '</div>';
+                }
+                document.getElementById('categoryScores').innerHTML += wrongQuestionsHTML;
+
+                // 准备报告数据
+                const reportData = prepareReportData();
+
+                // 保存到本地存储
+                saveToLocalStorage(reportData);
+                console.log('✅ 成绩已保存到本地存储');
+
+                // 同步到飞书多维表格
+                syncToFeishuWebhook(reportData);
+                console.log('✅ 飞书同步完成');
+
+                showScreen('result-screen');
+                console.log('✅ 成功切换到结果屏幕');
+            } catch (error) {
+                console.error('❌ showResult 出错:', error);
+                console.error('错误堆栈:', error.stack);
+                console.error('当前状态:', appState);
+
+                // 强制显示结果屏幕，即使有错误也要显示
+                try {
+                    document.getElementById('scoreCircle').textContent = '错误';
+                    document.getElementById('resultName').textContent = appState.userName || '未知用户';
+                    document.getElementById('resultDept').textContent = appState.department || '未知部门';
+                    document.getElementById('resultScore').textContent = '数据计算出错';
+                    showScreen('result-screen');
+                    alert('成绩计算时出现问题，但结果页面已显示。请查看控制台了解详情。');
+                } catch (e) {
+                    alert('页面出错，请刷新重试');
+                }
             }
-            document.getElementById('categoryScores').innerHTML += wrongQuestionsHTML;
-
-            // 准备报告数据
-            const reportData = prepareReportData();
-
-            // 保存到本地存储
-            saveToLocalStorage(reportData);
-
-            // 同步到飞书多维表格
-            syncToFeishuWebhook(reportData);
-
-            showScreen('result-screen');
         }
 
         function restartTest() {

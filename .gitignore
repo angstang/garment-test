@@ -6,3 +6,5 @@ __pycache__/
 *.json
 # 允许题库JSON文件
 !garment/questions_db.json
+!garment/questions_multi_dept.json
+!questions_multi_dept.json
