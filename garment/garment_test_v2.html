@@ -661,6 +661,11 @@
         function loadAllQuestions() {
             const timeoutMs = 3000; // 3秒超时
 
+            // 确定文件路径（支持从根目录或garment目录访问）
+            const basePath = window.location.pathname.includes('/garment/') ? '../' : 'garment/';
+            const questionsMultiDeptPath = basePath + 'questions_multi_dept.json';
+            const questionsDbPath = basePath + 'questions_db.json';
+
             // 创建超时Promise
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('加载超时')), timeoutMs)
@@ -668,7 +673,7 @@
 
             // 首先尝试从多部门题库JSON文件加载
             Promise.race([
-                fetch('garment/questions_multi_dept.json')
+                fetch(questionsMultiDeptPath)
                     .then(response => {
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
                         return response.json();
@@ -689,7 +694,7 @@
 
                     // 回退到原来的单一题库
                     Promise.race([
-                        fetch('garment/questions_db.json')
+                        fetch(questionsDbPath)
                             .then(response => {
                                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                                 return response.json();
