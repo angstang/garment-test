@@ -650,9 +650,12 @@
 
         // 初始化
         window.onload = function () {
-            // 尝试从本地加载题库，如果失败则使用内置题库
-            loadAllQuestions();
+            // 延迟加载题库 - 在用户点击"开始测试"时才加载，不在页面加载时加载
+            // 这样可以显著加快页面打开速度
         };
+
+        // 标记题库是否已加载
+        let questionsLoaded = false;
 
         // 加载所有题库（多部门）- 带超时机制
         function loadAllQuestions() {
@@ -781,7 +784,14 @@
             console.log('🔄 startTest 被调用');
             showScreen('loading-screen');
 
-            // 模拟加载延迟
+            // 如果题库还没加载，现在加载
+            if (!questionsLoaded) {
+                console.log('🔄 开始加载题库...');
+                loadAllQuestions();
+                questionsLoaded = true;
+            }
+
+            // 加载完成后切换到信息输入界面
             setTimeout(() => {
                 console.log('🔄 加载完成，切换到info-screen');
                 showScreen('info-screen');
