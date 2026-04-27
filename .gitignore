@@ -10,3 +10,4 @@ __pycache__/
 !complete_questions.json
 !garment/questions_multi_dept.json
 !questions_multi_dept.json
+email-assistant/
