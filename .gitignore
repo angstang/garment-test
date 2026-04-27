@@ -4,3 +4,6 @@ __pycache__/
 .vscode/
 .env
 *.json
+# 允许题库JSON文件
+!garment/questions_multi_dept.json
+!garment/questions_db.json
