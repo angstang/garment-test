@@ -1,3 +1,0 @@
-timestamp	commit	skill	old_score	new_score	status	dimension	note	eval_mode	评估详情
-2026-04-15T02:19	baseline	darwin-skill	-	73.8	baseline	all	初始基线评估	full_analysis	基线分数73.8/100，5个结构短板已识别
-2026-04-15T07:30	3035ca7	darwin-skill	73.8	-	in-review	P0-critical	修复边界条件处理和评分标准	dry_run	待人工评审并重新评分
