@@ -1,0 +1,21 @@
+# Netlify 构建配置
+
+[build]
+  # 由于这是纯静态网站，不需要构建步骤
+  command = "echo 'Static site - no build needed'"
+  publish = "."
+
+[[redirects]]
+  # 处理SPA路由（如需要）
+  from = "/*"
+  to = "/garment_test_v2.html"
+  status = 200
+
+[context.production]
+  # 生产环境配置
+  publish = "."
+
+[dev]
+  # 本地开发配置
+  port = 8000
+  publish = "."
