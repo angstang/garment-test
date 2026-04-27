@@ -736,36 +736,48 @@
         function selectRandomQuestions(count = 30) {
             let questionsPool = [];
 
-            // 始终添加公用题库
-            if (appState.allDeptQuestions && appState.allDeptQuestions.public && appState.allDeptQuestions.public.length > 0) {
-                questionsPool = [...appState.allDeptQuestions.public];
+            // 优先级1：使用新的完整题库（36道题 - 单选、多选、问答）
+            if (appState.allQuestions && appState.allQuestions.length > 0) {
+                // 检查是否包含新的题型（essay、multiple）
+                const hasNewTypes = appState.allQuestions.some(q => q.type === 'essay' || q.type === 'multiple');
+                if (hasNewTypes || appState.allQuestions.length > 30) {
+                    // 这是新的36道题库
+                    questionsPool = [...appState.allQuestions];
+                    console.log(`✅ 使用新的完整题库: ${questionsPool.length}道题 (包含单选、多选、问答)`);
+                }
             }
 
-            // 根据部门添加专属题库
-            const deptMap = {
-                '设计部': 'designer',
-                'Designer': 'designer',
-                '工艺部': 'technician',
-                'Technician': 'technician',
-                '版师部': 'patternmaker',
-                'PatternMaker': 'patternmaker',
-                '品质部': 'technician',  // 品质部与工艺师共用题库
-                '管理层': null,          // 管理层仅使用公用题库
-                '其他': null             // 其他岗位仅使用公用题库
-            };
+            // 优先级2：使用多部门题库（如果完整题库为空）
+            if (questionsPool.length === 0) {
+                // 始终添加公用题库
+                if (appState.allDeptQuestions && appState.allDeptQuestions.public && appState.allDeptQuestions.public.length > 0) {
+                    questionsPool = [...appState.allDeptQuestions.public];
+                }
 
-            const deptKey = deptMap[appState.department];
-            if (deptKey && appState.allDeptQuestions && appState.allDeptQuestions[deptKey] && appState.allDeptQuestions[deptKey].length > 0) {
-                questionsPool = [...questionsPool, ...appState.allDeptQuestions[deptKey]];
+                // 根据部门添加专属题库
+                const deptMap = {
+                    '设计部': 'designer',
+                    'Designer': 'designer',
+                    '工艺部': 'technician',
+                    'Technician': 'technician',
+                    '版师部': 'patternmaker',
+                    'PatternMaker': 'patternmaker',
+                    '品质部': 'technician',  // 品质部与工艺师共用题库
+                    '管理层': null,          // 管理层仅使用公用题库
+                    '其他': null             // 其他岗位仅使用公用题库
+                };
+
+                const deptKey = deptMap[appState.department];
+                if (deptKey && appState.allDeptQuestions && appState.allDeptQuestions[deptKey] && appState.allDeptQuestions[deptKey].length > 0) {
+                    questionsPool = [...questionsPool, ...appState.allDeptQuestions[deptKey]];
+                }
+
+                if (questionsPool.length > 0) {
+                    console.log(`ℹ️ 使用多部门题库: ${questionsPool.length}道题`);
+                }
             }
 
-            // 如果多部门题库为空，尝试使用旧的单一题库
-            if (questionsPool.length === 0 && appState.allQuestions && appState.allQuestions.length > 0) {
-                questionsPool = [...appState.allQuestions];
-                console.log(`ℹ️ 使用旧版题库: ${questionsPool.length}道题`);
-            }
-
-            // 如果还是没有题库，使用内置题库
+            // 优先级3：如果还是没有题库，使用内置题库
             if (questionsPool.length === 0) {
                 questionsPool = getBuiltInQuestions();
                 appState.allQuestions = questionsPool;
@@ -853,10 +865,15 @@
             }
 
             // 加载完成后切换到信息输入界面
+            // 增加延迟时间以确保题库加载完成
             setTimeout(() => {
                 console.log('🔄 加载完成，切换到info-screen');
+                console.log('当前题库状态:', {
+                    allQuestions: appState.allQuestions.length,
+                    allDeptQuestions: appState.allDeptQuestions
+                });
                 showScreen('info-screen');
-            }, 500);
+            }, 2000);
         }
 
         function backToWelcome() {
