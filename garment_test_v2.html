@@ -661,7 +661,10 @@
         function loadAllQuestions() {
             // 首先尝试从多部门题库JSON文件加载
             fetch('garment/questions_multi_dept.json')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
                     appState.allDeptQuestions = {
                         'public': data.public_questions || [],
@@ -676,17 +679,23 @@
                     console.log(`  - 版师专属: ${appState.allDeptQuestions.patternmaker.length}道题`);
                 })
                 .catch(error => {
-                    console.log('多部门题库加载失败，尝试加载旧版题库');
+                    console.warn('❌ 多部门题库加载失败:', error.message);
+                    console.log('尝试加载旧版题库...');
                     // 回退到原来的单一题库
                     fetch('garment/questions_db.json')
-                        .then(response => response.json())
+                        .then(response => {
+                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                            return response.json();
+                        })
                         .then(data => {
-                            appState.allQuestions = data.questions;
-                            console.log(`✅ 已加载${data.questions.length}道题库`);
+                            appState.allQuestions = data.questions || [];
+                            console.log(`✅ 已加载${appState.allQuestions.length}道题库`);
                         })
                         .catch(error => {
-                            console.log('使用内置题库');
+                            console.warn('❌ 旧版题库也加载失败:', error.message);
+                            console.log('使用内置题库...');
                             appState.allQuestions = getBuiltInQuestions();
+                            console.log(`✅ 已加载内置${appState.allQuestions.length}道题库`);
                         });
                 });
         }
@@ -696,7 +705,7 @@
             let questionsPool = [];
 
             // 始终添加公用题库
-            if (appState.allDeptQuestions.public && appState.allDeptQuestions.public.length > 0) {
+            if (appState.allDeptQuestions && appState.allDeptQuestions.public && appState.allDeptQuestions.public.length > 0) {
                 questionsPool = [...appState.allDeptQuestions.public];
             }
 
@@ -714,13 +723,21 @@
             };
 
             const deptKey = deptMap[appState.department];
-            if (deptKey && appState.allDeptQuestions[deptKey] && appState.allDeptQuestions[deptKey].length > 0) {
+            if (deptKey && appState.allDeptQuestions && appState.allDeptQuestions[deptKey] && appState.allDeptQuestions[deptKey].length > 0) {
                 questionsPool = [...questionsPool, ...appState.allDeptQuestions[deptKey]];
             }
 
             // 如果多部门题库为空，尝试使用旧的单一题库
-            if (questionsPool.length === 0) {
+            if (questionsPool.length === 0 && appState.allQuestions && appState.allQuestions.length > 0) {
                 questionsPool = [...appState.allQuestions];
+                console.log(`ℹ️ 使用旧版题库: ${questionsPool.length}道题`);
+            }
+
+            // 如果还是没有题库，使用内置题库
+            if (questionsPool.length === 0) {
+                questionsPool = getBuiltInQuestions();
+                appState.allQuestions = questionsPool;
+                console.log(`ℹ️ 使用内置题库: ${questionsPool.length}道题`);
             }
 
             // 打乱并抽取
