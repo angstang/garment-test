@@ -671,9 +671,11 @@
                 setTimeout(() => reject(new Error('加载超时')), timeoutMs)
             );
 
-            // 首先尝试从多部门题库JSON文件加载
+            // 首先尝试从完整题库加载
+            const completeQuestionsPath = basePath + 'complete_questions.json';
+
             Promise.race([
-                fetch(questionsMultiDeptPath)
+                fetch(completeQuestionsPath)
                     .then(response => {
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
                         return response.json();
@@ -681,20 +683,15 @@
                 timeoutPromise
             ])
                 .then(data => {
-                    appState.allDeptQuestions = {
-                        'public': data.public_questions || [],
-                        'designer': data.designer_questions || [],
-                        'technician': data.technician_questions || [],
-                        'patternmaker': data.patternmaker_questions || []
-                    };
-                    console.log(`✅ 已加载多部门题库`);
+                    appState.allQuestions = data.questions || [];
+                    console.log(`✅ 已加载完整题库 - ${appState.allQuestions.length}道题 (包含单选、多选、问答)`);
                 })
                 .catch(error => {
-                    console.warn('⏱️ 多部门题库加载失败/超时:', error.message);
+                    console.warn('⏱️ 完整题库加载失败，尝试多部门题库:', error.message);
 
-                    // 回退到原来的单一题库
+                    // 回退到多部门题库
                     Promise.race([
-                        fetch(questionsDbPath)
+                        fetch(questionsMultiDeptPath)
                             .then(response => {
                                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                                 return response.json();
@@ -702,8 +699,29 @@
                         timeoutPromise
                     ])
                         .then(data => {
-                            appState.allQuestions = data.questions || [];
-                            console.log(`✅ 已加载旧版${appState.allQuestions.length}道题库`);
+                            appState.allDeptQuestions = {
+                                'public': data.public_questions || [],
+                                'designer': data.designer_questions || [],
+                                'technician': data.technician_questions || [],
+                                'patternmaker': data.patternmaker_questions || []
+                            };
+                            console.log(`✅ 已加载多部门题库`);
+                        })
+                        .catch(error => {
+                            console.warn('⏱️ 多部门题库加载失败/超时:', error.message);
+
+                            // 回退到原来的单一题库
+                            Promise.race([
+                                fetch(questionsDbPath)
+                                    .then(response => {
+                                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                                        return response.json();
+                                    }),
+                                timeoutPromise
+                            ])
+                                .then(data => {
+                                    appState.allQuestions = data.questions || [];
+                                    console.log(`✅ 已加载旧版${appState.allQuestions.length}道题库`);
                         })
                         .catch(error => {
                             console.warn('⏱️ 旧版题库也加载失败/超时');
@@ -761,7 +779,45 @@
                 [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
 
-            appState.selectedQuestions = shuffled.slice(0, Math.min(count, shuffled.length));
+            // 为每道题打乱选项（如果是单选或多选题）
+            const questionsWithShuffledOptions = shuffled.slice(0, Math.min(count, shuffled.length)).map(q => {
+                const questionCopy = JSON.parse(JSON.stringify(q)); // 深度拷贝
+
+                if (questionCopy.type === 'single' || questionCopy.type === 'multiple') {
+                    // 创建选项数组，包含选项文本和是否正确的标记
+                    const optionsWithIndex = questionCopy.options.map((option, index) => ({
+                        text: option,
+                        originalIndex: index
+                    }));
+
+                    // 打乱选项
+                    for (let i = optionsWithIndex.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [optionsWithIndex[i], optionsWithIndex[j]] = [optionsWithIndex[j], optionsWithIndex[i]];
+                    }
+
+                    // 更新问题的选项和正确答案索引
+                    if (questionCopy.type === 'single') {
+                        // 找到正确答案在新位置的索引
+                        const correctOptionIndex = optionsWithIndex.findIndex(opt => opt.originalIndex === questionCopy.correct);
+                        questionCopy.correct = correctOptionIndex;
+                        questionCopy.options = optionsWithIndex.map(opt => opt.text);
+                    } else if (questionCopy.type === 'multiple') {
+                        // 多选题：更新所有正确答案的新索引
+                        const newCorrectIndices = [];
+                        questionCopy.correct.forEach(correctIdx => {
+                            const newIdx = optionsWithIndex.findIndex(opt => opt.originalIndex === correctIdx);
+                            newCorrectIndices.push(newIdx);
+                        });
+                        questionCopy.correct = newCorrectIndices.sort((a, b) => a - b);
+                        questionCopy.options = optionsWithIndex.map(opt => opt.text);
+                    }
+                }
+
+                return questionCopy;
+            });
+
+            appState.selectedQuestions = questionsWithShuffledOptions;
             document.getElementById('totalNum').textContent = appState.selectedQuestions.length;
 
             console.log(`✅ 为${appState.department}随机抽取${appState.selectedQuestions.length}道题`);
@@ -951,20 +1007,70 @@
             const progress = ((appState.currentQuestion + 1) / appState.selectedQuestions.length) * 100;
             document.getElementById('progressFill').style.width = progress + '%';
 
-            // 渲染选项
+            // 根据题型渲染不同的UI
             const optionsContainer = document.getElementById('optionsContainer');
             optionsContainer.innerHTML = '';
-            q.options.forEach((option, index) => {
-                const div = document.createElement('div');
-                div.className = 'option';
-                if (appState.answers[appState.currentQuestion] === index) {
-                    div.classList.add('selected');
-                }
-                div.innerHTML = `<input type="radio" name="option" value="${index}" ${appState.answers[appState.currentQuestion] === index ? 'checked' : ''}>
-                    <span>${option}</span>`;
-                div.onclick = () => selectOption(index);
-                optionsContainer.appendChild(div);
-            });
+
+            // 问答题
+            if (q.type === 'essay') {
+                const textareaDiv = document.createElement('div');
+                textareaDiv.style.marginTop = '20px';
+                const textarea = document.createElement('textarea');
+                textarea.id = 'essayAnswer';
+                textarea.placeholder = '请输入你的答案（至少50个字）';
+                textarea.style.width = '100%';
+                textarea.style.height = '200px';
+                textarea.style.padding = '10px';
+                textarea.style.fontSize = '14px';
+                textarea.style.border = '1px solid #ddd';
+                textarea.style.borderRadius = '4px';
+                textarea.value = appState.answers[appState.currentQuestion] || '';
+                textarea.onchange = () => {
+                    appState.answers[appState.currentQuestion] = textarea.value;
+                };
+                textarea.oninput = () => {
+                    appState.answers[appState.currentQuestion] = textarea.value;
+                };
+                textareaDiv.appendChild(textarea);
+                optionsContainer.appendChild(textareaDiv);
+            }
+            // 单选题
+            else if (q.type === 'single') {
+                q.options.forEach((option, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'option';
+                    if (appState.answers[appState.currentQuestion] === index) {
+                        div.classList.add('selected');
+                    }
+                    div.innerHTML = `<input type="radio" name="option" value="${index}" ${appState.answers[appState.currentQuestion] === index ? 'checked' : ''}>
+                        <span>${option}</span>`;
+                    div.onclick = () => selectOption(index, 'single');
+                    optionsContainer.appendChild(div);
+                });
+            }
+            // 多选题
+            else if (q.type === 'multiple') {
+                q.options.forEach((option, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'option';
+                    const selectedAnswers = appState.answers[appState.currentQuestion] || [];
+                    if (selectedAnswers.includes(index)) {
+                        div.classList.add('selected');
+                    }
+                    div.innerHTML = `<input type="checkbox" name="option" value="${index}" ${selectedAnswers.includes(index) ? 'checked' : ''}>
+                        <span>${option}</span>`;
+                    div.onclick = () => selectOption(index, 'multiple');
+                    optionsContainer.appendChild(div);
+                });
+
+                // 添加多选提示
+                const hint = document.createElement('div');
+                hint.style.marginTop = '10px';
+                hint.style.color = '#ff9800';
+                hint.style.fontSize = '12px';
+                hint.textContent = '⚠️ 这是多选题，可以选择多个正确答案';
+                optionsContainer.appendChild(hint);
+            }
 
             // 清空反馈
             document.getElementById('feedback').classList.remove('show');
@@ -979,25 +1085,49 @@
             startQuestionTimer();
         }
 
-        function selectOption(index) {
+        function selectOption(index, type) {
             // 用户可以选择答案
-            appState.answers[appState.currentQuestion] = index;
-            document.querySelectorAll('.option').forEach((el, i) => {
-                el.classList.toggle('selected', i === index);
-                el.querySelector('input').checked = i === index;
-            });
+            if (type === 'single') {
+                // 单选题
+                appState.answers[appState.currentQuestion] = index;
+                document.querySelectorAll('.option').forEach((el, i) => {
+                    el.classList.toggle('selected', i === index);
+                    const radio = el.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = i === index;
+                });
+            } else if (type === 'multiple') {
+                // 多选题
+                const selectedAnswers = appState.answers[appState.currentQuestion] || [];
+                const newAnswers = selectedAnswers.includes(index)
+                    ? selectedAnswers.filter(i => i !== index)
+                    : [...selectedAnswers, index];
+                appState.answers[appState.currentQuestion] = newAnswers.sort((a, b) => a - b);
+
+                document.querySelectorAll('.option').forEach((el, i) => {
+                    el.classList.toggle('selected', appState.answers[appState.currentQuestion].includes(i));
+                    const checkbox = el.querySelector('input[type="checkbox"]');
+                    if (checkbox) checkbox.checked = appState.answers[appState.currentQuestion].includes(i);
+                });
+            }
         }
 
         function submitAnswer() {
             try {
-                // 检查是否选择了答案
-                if (appState.answers[appState.currentQuestion] === undefined) {
-                    alert('请选择一个答案');
+                const q = appState.selectedQuestions[appState.currentQuestion];
+                const answer = appState.answers[appState.currentQuestion];
+
+                // 检查是否填写了答案
+                if (answer === undefined || answer === null || (typeof answer === 'string' && answer.trim() === '') || (Array.isArray(answer) && answer.length === 0)) {
+                    if (q.type === 'essay') {
+                        alert('请输入答案');
+                    } else {
+                        alert('请选择一个答案');
+                    }
                     return;
                 }
 
                 const isLastQuestion = appState.currentQuestion >= appState.selectedQuestions.length - 1;
-                console.log(`✅ 提交答案: 第 ${appState.currentQuestion + 1}/${appState.selectedQuestions.length} 题, 是否为最后一题: ${isLastQuestion}`);
+                console.log(`✅ 提交答案: 第 ${appState.currentQuestion + 1}/${appState.selectedQuestions.length} 题 (${q.type}), 是否为最后一题: ${isLastQuestion}`);
 
                 // 直接跳转到下一题，不显示反馈
                 if (!isLastQuestion) {
@@ -1148,8 +1278,31 @@
 
                 let correct = 0;
                 for (let i = 0; i < appState.selectedQuestions.length; i++) {
-                    if (appState.answers[i] === appState.selectedQuestions[i].correct) {
-                        correct++;
+                    const q = appState.selectedQuestions[i];
+                    const answer = appState.answers[i];
+
+                    // 根据题型判断是否正确
+                    if (q.type === 'single') {
+                        // 单选题：直接比较
+                        if (answer === q.correct) {
+                            correct++;
+                        }
+                    } else if (q.type === 'multiple') {
+                        // 多选题：需要完全匹配（顺序不重要）
+                        if (Array.isArray(answer) && Array.isArray(q.correct)) {
+                            const sortedAnswer = [...answer].sort((a, b) => a - b);
+                            const sortedCorrect = [...q.correct].sort((a, b) => a - b);
+                            if (JSON.stringify(sortedAnswer) === JSON.stringify(sortedCorrect)) {
+                                correct++;
+                            }
+                        }
+                    } else if (q.type === 'essay') {
+                        // 问答题：显示参考答案，用户自行判断，暂时不计入成绩
+                        // 可以根据字数或其他因素给予部分分数
+                        if (answer && answer.length >= 50) {
+                            // 有填写且字数达到50以上，给予50%的分数
+                            correct += 0.5;
+                        }
                     }
                 }
 
@@ -1187,18 +1340,41 @@
                 const categoryScores = {};
                 appState.selectedQuestions.forEach((q, i) => {
                     if (!categoryScores[q.category]) {
-                        categoryScores[q.category] = { total: 0, correct: 0 };
+                        categoryScores[q.category] = { total: 0, correct: 0, types: {} };
                     }
                     categoryScores[q.category].total++;
-                    if (appState.answers[i] === q.correct) {
+
+                    const answer = appState.answers[i];
+                    let isCorrect = false;
+
+                    if (q.type === 'single' && answer === q.correct) {
+                        isCorrect = true;
+                    } else if (q.type === 'multiple' && Array.isArray(answer) && Array.isArray(q.correct)) {
+                        const sortedAnswer = [...answer].sort((a, b) => a - b);
+                        const sortedCorrect = [...q.correct].sort((a, b) => a - b);
+                        if (JSON.stringify(sortedAnswer) === JSON.stringify(sortedCorrect)) {
+                            isCorrect = true;
+                        }
+                    } else if (q.type === 'essay' && answer && answer.length >= 50) {
+                        isCorrect = true; // 问答题有答案即认为正确
+                    }
+
+                    if (isCorrect) {
                         categoryScores[q.category].correct++;
                     }
+
+                    // 统计题型
+                    if (!categoryScores[q.category].types[q.type]) {
+                        categoryScores[q.category].types[q.type] = 0;
+                    }
+                    categoryScores[q.category].types[q.type]++;
                 });
 
                 let categoryHTML = '<h4>📊 分类成绩：</h4>';
                 for (const [cat, scores] of Object.entries(categoryScores)) {
                     const catPercentage = ((scores.correct / scores.total) * 100).toFixed(0);
-                    categoryHTML += `<div class="category-score"><span>${cat}</span><span>${scores.correct}/${scores.total} (${catPercentage}%)</span></div>`;
+                    const typeInfo = Object.entries(scores.types).map(([type, count]) => `${type}:${count}`).join(' ');
+                    categoryHTML += `<div class="category-score"><span>${cat}</span><span>${scores.correct}/${scores.total} (${catPercentage}%)</span><span style="font-size:12px;color:#999;">${typeInfo}</span></div>`;
                 }
                 document.getElementById('categoryScores').innerHTML = categoryHTML;
 
@@ -1206,25 +1382,79 @@
                 let wrongQuestionsHTML = '';
                 const wrongQuestions = [];
                 appState.selectedQuestions.forEach((q, i) => {
-                    if (appState.answers[i] !== q.correct) {
+                    const answer = appState.answers[i];
+                    let isCorrect = false;
+
+                    if (q.type === 'single' && answer === q.correct) {
+                        isCorrect = true;
+                    } else if (q.type === 'multiple' && Array.isArray(answer) && Array.isArray(q.correct)) {
+                        const sortedAnswer = [...answer].sort((a, b) => a - b);
+                        const sortedCorrect = [...q.correct].sort((a, b) => a - b);
+                        if (JSON.stringify(sortedAnswer) === JSON.stringify(sortedCorrect)) {
+                            isCorrect = true;
+                        }
+                    } else if (q.type === 'essay') {
+                        isCorrect = true; // 问答题不算错题
+                    }
+
+                    if (!isCorrect) {
                         wrongQuestions.push({
                             index: i,
                             question: q,
-                            userAnswer: appState.answers[i]
+                            userAnswer: answer
                         });
                     }
                 });
+
+                // 添加问答题展示
+                let essayQuestionsHTML = '';
+                const essayQuestions = appState.selectedQuestions.filter((q, i) => q.type === 'essay');
+                if (essayQuestions.length > 0) {
+                    essayQuestionsHTML = '<div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #eee;"><h4>📝 问答题回顾：</h4>';
+                    essayQuestions.forEach((q, idx) => {
+                        const qIndex = appState.selectedQuestions.findIndex(sq => sq === q);
+                        const userAnswer = appState.answers[qIndex] || '(未作答)';
+                        essayQuestionsHTML += `
+                            <div style="background: #e8f5e9; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #4caf50;">
+                                <p style="margin: 0 0 10px 0;"><strong>第 ${qIndex + 1} 题 - ${q.category}</strong></p>
+                                <p style="margin: 5px 0; color: #333;"><strong>题目：</strong>${q.content}</p>
+                                <p style="margin: 5px 0; color: #1976d2;"><strong>你的答案：</strong><br/>${userAnswer.replace(/\n/g, '<br/>')}</p>
+                                <p style="margin: 5px 0; color: #388e3c;"><strong>参考答案：</strong><br/>${q.answer.replace(/\n/g, '<br/>')}</p>
+                                <p style="margin: 5px 0; color: #555;"><strong>评分说明：</strong>${q.explanation}</p>
+                                <p style="margin: 5px 0; font-size: 12px; color: #666;"><strong>标准：</strong>${q.standard}</p>
+                            </div>
+                        `;
+                    });
+                    essayQuestionsHTML += '</div>';
+                }
 
                 if (wrongQuestions.length > 0) {
                     wrongQuestionsHTML = '<div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #eee;"><h4>❌ 错题分析：</h4>';
                     wrongQuestions.forEach((item, idx) => {
                         const q = item.question;
-                        wrongQuestionsHTML += `
-                            <div style="background: #fff3cd; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #ff9800;">
-                                <p style="margin: 0 0 10px 0;"><strong>第 ${item.index + 1} 题 - ${q.category}</strong></p>
-                                <p style="margin: 5px 0; color: #333;"><strong>题目：</strong>${q.content}</p>
+                        let answerDisplay = '';
+
+                        if (q.type === 'single') {
+                            answerDisplay = `
                                 <p style="margin: 5px 0; color: #d32f2f;"><strong>你的答案：</strong>${String.fromCharCode(65 + item.userAnswer)} - ${q.options[item.userAnswer]}</p>
                                 <p style="margin: 5px 0; color: #388e3c;"><strong>正确答案：</strong>${String.fromCharCode(65 + q.correct)} - ${q.options[q.correct]}</p>
+                            `;
+                        } else if (q.type === 'multiple') {
+                            const userAnswerText = item.userAnswer && Array.isArray(item.userAnswer)
+                                ? item.userAnswer.map(idx => `${String.fromCharCode(65 + idx)} - ${q.options[idx]}`).join(', ')
+                                : '(未作答)';
+                            const correctAnswerText = q.correct.map(idx => `${String.fromCharCode(65 + idx)} - ${q.options[idx]}`).join(', ');
+                            answerDisplay = `
+                                <p style="margin: 5px 0; color: #d32f2f;"><strong>你的答案：</strong>${userAnswerText}</p>
+                                <p style="margin: 5px 0; color: #388e3c;"><strong>正确答案：</strong>${correctAnswerText}</p>
+                            `;
+                        }
+
+                        wrongQuestionsHTML += `
+                            <div style="background: #fff3cd; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #ff9800;">
+                                <p style="margin: 0 0 10px 0;"><strong>第 ${item.index + 1} 题 (${q.type === 'single' ? '单选' : '多选'}) - ${q.category}</strong></p>
+                                <p style="margin: 5px 0; color: #333;"><strong>题目：</strong>${q.content}</p>
+                                ${answerDisplay}
                                 <p style="margin: 5px 0; color: #1976d2;"><strong>解释：</strong>${q.explanation}</p>
                                 <p style="margin: 5px 0; font-size: 12px; color: #666;"><strong>标准：</strong>${q.standard}</p>
                             </div>
@@ -1232,7 +1462,8 @@
                     });
                     wrongQuestionsHTML += '</div>';
                 }
-                document.getElementById('categoryScores').innerHTML += wrongQuestionsHTML;
+
+                document.getElementById('categoryScores').innerHTML += essayQuestionsHTML + wrongQuestionsHTML;
 
                 // 准备报告数据
                 const reportData = prepareReportData();
